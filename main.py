@@ -36,9 +36,7 @@ def main(page: ft.Page):
     config = load_config()
 
     def show_snack(msg: str, color: str = "#d32f2f"):
-        page.snack_bar = ft.SnackBar(ft.Text(msg, color="white"), bgcolor=color)
-        page.snack_bar.open = True
-        page.update()
+        page.show_dialog(ft.SnackBar(content=ft.Text(msg, color="white"), bgcolor=color))
 
     def render():
         page.controls.clear()
@@ -66,12 +64,17 @@ def main(page: ft.Page):
             page.add(
                 ft.Icon(ft.Icons.VPN_KEY_ROUNDED, size=64, color="#ffb300"),
                 ft.Text("CREATE MASTER PASSWORD", size=20, weight=ft.FontWeight.BOLD, color="#ffb300"),
-                ft.Text("Set this once. You will use it to unlock NetPadlock.", size=13, color="#aaaaaa", text_align=ft.TextAlign.CENTER),
+                ft.Text(
+                    "Set this once. You will use it to unlock NetPadlock.",
+                    size=13,
+                    color="#aaaaaa",
+                    text_align=ft.TextAlign.CENTER,
+                ),
                 ft.Container(height=12),
                 pw_field,
                 ft.Container(height=8),
-                ft.ElevatedButton(
-                    "SAVE MASTER PASSWORD",
+                ft.Button(
+                    content="SAVE MASTER PASSWORD",
                     bgcolor="#1976d2",
                     color="white",
                     width=320,
@@ -103,12 +106,17 @@ def main(page: ft.Page):
             page.add(
                 ft.Icon(ft.Icons.LOCK_ROUNDED, size=72, color="#f44336"),
                 ft.Text("INTERNET LOCKED", size=22, weight=ft.FontWeight.BOLD, color="#f44336"),
-                ft.Text("Lock persists across restarts.\nEnter your master password to unlock.", size=13, color="#cccccc", text_align=ft.TextAlign.CENTER),
+                ft.Text(
+                    "Lock persists across restarts.\nEnter your master password to unlock.",
+                    size=13,
+                    color="#cccccc",
+                    text_align=ft.TextAlign.CENTER,
+                ),
                 ft.Container(height=12),
                 unlock_field,
                 ft.Container(height=8),
-                ft.ElevatedButton(
-                    "UNLOCK INTERNET ACCESS",
+                ft.Button(
+                    content="UNLOCK INTERNET ACCESS",
                     bgcolor="#388e3c",
                     color="white",
                     width=320,
@@ -133,17 +141,22 @@ def main(page: ft.Page):
             page.add(
                 ft.Icon(ft.Icons.LOCK_OPEN_ROUNDED, size=72, color="#4caf50"),
                 ft.Text("INTERNET UNLOCKED", size=22, weight=ft.FontWeight.BOLD, color="#4caf50"),
-                ft.Text("Master password is saved. Tap below to engage lock.", size=13, color="#aaaaaa", text_align=ft.TextAlign.CENTER),
+                ft.Text(
+                    "Master password is saved. Tap below to engage lock.",
+                    size=13,
+                    color="#aaaaaa",
+                    text_align=ft.TextAlign.CENTER,
+                ),
                 ft.Container(height=16),
-                ft.ElevatedButton(
-                    "LOCK INTERNET NOW",
+                ft.Button(
+                    content="LOCK INTERNET NOW",
                     bgcolor="#d32f2f",
                     color="white",
                     width=320,
                     height=54,
                     on_click=on_lock,
                 ),
-                ft.TextButton("Reset Master Password", on_click=on_reset),
+                ft.TextButton(content="Reset Master Password", on_click=on_reset),
             )
 
         page.update()
@@ -151,4 +164,4 @@ def main(page: ft.Page):
     render()
 
 
-ft.app(main)
+ft.run(main)
