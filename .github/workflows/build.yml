@@ -11,20 +11,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Initialize Buildozer Spec
-        run: |
-          pip install buildozer
-          buildozer init
-
-      - name: Build APK in the Cloud
-        uses: ArtemSBulgakov/buildozer-action@v1
-        id: buildozer
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          command: buildozer android debug
-          buildozer_version: stable
+          python-version: '3.11'
+
+      - name: Install Buildozer & System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev
+          pip install --upgrade buildozer cython virtualenv
+
+      - name: Initialize & Build APK
+        run: |
+          yes | buildozer init || true
+          yes | buildozer -v android debug
 
       - name: Upload Finished APK
         uses: actions/upload-artifact@v4
         with:
           name: padlock-apk
-          path: ${{ steps.buildozer.outputs.filename }}
+          path: bin/*.apk
