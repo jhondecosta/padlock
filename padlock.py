@@ -1,325 +1,309 @@
-import ctypes
 import hashlib
 import json
 import os
-import subprocess
-import sys
-import tkinter as tk
-from tkinter import messagebox
+from kivy.app import App
+from kivy.core.window import Window
+from kivy.metrics import dp
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.button import Button
+from kivy.uix.label import Label
+from kivy.uix.popup import Popup
+from kivy.uix.textinput import TextInput
+from kivy.utils import platform
 
-CONFIG_DIR = os.path.join(os.environ.get("PROGRAMDATA", "C:\\ProgramData"), "NetPadlock")
-CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
-RULE_NAME_OUT = "NetPadlock_Block_Out"
-RULE_NAME_IN = "NetPadlock_Block_In"
-TASK_NAME = "NetPadlock_BootLock"
-
-
-def is_admin():
-    try:
-        return ctypes.windll.shell32.IsUserAnAdmin()
-    except Exception:
-        return False
+Window.clearcolor = (0.118, 0.118, 0.118, 1)
 
 
-def run_as_admin():
-    if getattr(sys, "frozen", False):
-        ctypes.windll.shell32.ShellExecuteW(
-            None, "runas", sys.executable, "", None, 1
-        )
-    else:
-        ctypes.windll.shell32.ShellExecuteW(
-            None, "runas", sys.executable, f'"{os.path.abspath(__file__)}"', None, 1
-        )
-    sys.exit()
-
-
-def run_cmd(cmd):
-    subprocess.run(
-        cmd,
-        shell=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        creationflags=subprocess.CREATE_NO_WINDOW,
-    )
-
-
-def hash_password(password):
+def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
-def is_firewall_locked():
-    result = subprocess.run(
-        f'netsh advfirewall firewall show rule name="{RULE_NAME_OUT}"',
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        creationflags=subprocess.CREATE_NO_WINDOW,
-    )
-    return result.returncode == 0
+def open_android_network_settings():
+    if platform == "android":
+        try:
+            from jnius import autoclass
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
+            Intent = autoclass("android.content.Intent")
+            Settings = autoclass("android.provider.Settings")
+            intent = Intent(Settings.ACTION_WIRELESS_SETTINGS)
+            PythonActivity.mActivity.startActivity(intent)
+        except Exception:
+            pass
 
 
-def set_boot_autostart(enable):
-    if enable:
-        if getattr(sys, "frozen", False):
-            target = f'\\"{sys.executable}\\"'
-        else:
-            py_dir = os.path.dirname(sys.executable)
-            pythonw = os.path.join(py_dir, "pythonw.exe")
-            exe_to_use = pythonw if os.path.exists(pythonw) else sys.executable
-            script_path = os.path.abspath(__file__)
-            target = f'\\"{exe_to_use}\\" \\"{script_path}\\"'
-        run_cmd(
-            f'schtasks /create /tn "{TASK_NAME}" /tr "{target}" /sc onlogon /rl highest /f'
+class NetPadlockAndroidApp(App):
+    def build(self):
+        self.title = "NetPadlock"
+        os.makedirs(self.user_data_dir, exist_ok=True)
+        self.config_file = os.path.join(self.user_data_dir, "config.json")
+        self.config_data = self.load_config()
+
+        self.root_layout = BoxLayout(
+            orientation="vertical",
+            padding=[dp(24), dp(36), dp(24), dp(36)],
+            spacing=dp(14),
         )
-    else:
-        run_cmd(f'schtasks /delete /tn "{TASK_NAME}" /f')
-
-
-def lock_internet():
-    unlock_internet()
-    run_cmd(
-        f'netsh advfirewall firewall add rule name="{RULE_NAME_OUT}" dir=out action=block profile=any'
-    )
-    run_cmd(
-        f'netsh advfirewall firewall add rule name="{RULE_NAME_IN}" dir=in action=block profile=any'
-    )
-    set_boot_autostart(True)
-
-
-def unlock_internet():
-    run_cmd(f'netsh advfirewall firewall delete rule name="{RULE_NAME_OUT}"')
-    run_cmd(f'netsh advfirewall firewall delete rule name="{RULE_NAME_IN}"')
-    set_boot_autostart(False)
-
-
-class NetPadlockApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("NetPadlock - Hardware-Style Kill Switch")
-        self.root.geometry("420x390")
-        self.root.resizable(False, False)
-        self.root.configure(bg="#1e1e1e")
-
-        os.makedirs(CONFIG_DIR, exist_ok=True)
-        self.config = self.load_config()
-
-        self.main_frame = tk.Frame(self.root, bg="#1e1e1e")
-        self.main_frame.pack(expand=True, fill="both", padx=30, pady=25)
-
         self.render_screen()
+        return self.root_layout
 
     def load_config(self):
-        if os.path.exists(CONFIG_FILE):
+        if os.path.exists(self.config_file):
             try:
-                with open(CONFIG_FILE, "r") as f:
+                with open(self.config_file, "r", encoding="utf-8") as f:
                     return json.load(f)
             except Exception:
                 return {}
         return {}
 
     def save_config(self):
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(self.config, f)
+        with open(self.config_file, "w", encoding="utf-8") as f:
+            json.dump(self.config_data, f)
 
-    def clear_frame(self):
-        for widget in self.main_frame.winfo_children():
-            widget.destroy()
+    def show_message(self, title: str, text: str):
+        content = BoxLayout(orientation="vertical", padding=dp(16), spacing=dp(12))
+        lbl = Label(text=text, halign="center", valign="middle")
+        lbl.bind(size=lambda instance, value: setattr(instance, "text_size", value))
+        btn = Button(
+            text="OK",
+            size_hint_y=None,
+            height=dp(44),
+            background_normal="",
+            background_color=(0.1, 0.46, 0.82, 1),
+        )
+        content.add_widget(lbl)
+        content.add_widget(btn)
+        popup = Popup(title=title, content=content, size_hint=(0.85, 0.35))
+        btn.bind(on_release=popup.dismiss)
+        popup.open()
 
     def render_screen(self):
-        self.clear_frame()
-        if "password_hash" not in self.config:
+        self.root_layout.clear_widgets()
+        if "password_hash" not in self.config_data:
             self.build_setup_screen()
-        elif is_firewall_locked():
+        elif self.config_data.get("locked", False):
             self.build_locked_screen()
         else:
             self.build_unlocked_screen()
 
     def build_setup_screen(self):
-        tk.Label(
-            self.main_frame,
-            text="🔑",
-            font=("Segoe UI Emoji", 48),
-            bg="#1e1e1e",
-            fg="#ffb300",
-        ).pack(pady=(5, 5))
-
-        tk.Label(
-            self.main_frame,
-            text="CREATE MASTER PASSWORD",
-            font=("Segoe UI", 13, "bold"),
-            bg="#1e1e1e",
-            fg="#ffb300",
-        ).pack()
-
-        tk.Label(
-            self.main_frame,
-            text="Set this once. You will use it to unlock your internet.",
-            font=("Segoe UI", 9),
-            bg="#1e1e1e",
-            fg="#aaaaaa",
-        ).pack(pady=(2, 18))
-
-        self.setup_entry = tk.Entry(
-            self.main_frame,
-            show="*",
-            font=("Segoe UI", 12),
-            bg="#2d2d2d",
-            fg="#ffffff",
-            insertbackground="white",
-            relief="flat",
+        self.root_layout.add_widget(
+            Label(
+                text="[KEY]",
+                font_size="32sp",
+                bold=True,
+                color=(1, 0.7, 0, 1),
+                size_hint_y=None,
+                height=dp(50),
+            )
         )
-        self.setup_entry.pack(fill="x", ipady=6, pady=(4, 18))
-        self.setup_entry.focus()
-        self.setup_entry.bind("<Return>", lambda e: self.handle_save_master_password())
+        self.root_layout.add_widget(
+            Label(
+                text="CREATE MASTER PASSWORD",
+                font_size="20sp",
+                bold=True,
+                color=(1, 0.7, 0, 1),
+                size_hint_y=None,
+                height=dp(36),
+            )
+        )
+        sub = Label(
+            text="Set this once. You will use it to unlock NetPadlock.",
+            font_size="14sp",
+            color=(0.67, 0.67, 0.67, 1),
+            halign="center",
+            size_hint_y=None,
+            height=dp(44),
+        )
+        sub.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+        self.root_layout.add_widget(sub)
 
-        tk.Button(
-            self.main_frame,
+        self.setup_input = TextInput(
+            hint_text="Enter new master password",
+            password=True,
+            multiline=False,
+            font_size="18sp",
+            size_hint_y=None,
+            height=dp(52),
+            background_color=(0.18, 0.18, 0.18, 1),
+            foreground_color=(1, 1, 1, 1),
+            cursor_color=(1, 1, 1, 1),
+            padding=[dp(14), dp(14)],
+        )
+        self.root_layout.add_widget(self.setup_input)
+
+        save_btn = Button(
             text="SAVE MASTER PASSWORD",
-            font=("Segoe UI", 11, "bold"),
-            bg="#1976d2",
-            fg="white",
-            activebackground="#1565c0",
-            activeforeground="white",
-            relief="flat",
-            cursor="hand2",
-            command=self.handle_save_master_password,
-        ).pack(fill="x", ipady=10)
+            font_size="16sp",
+            bold=True,
+            size_hint_y=None,
+            height=dp(54),
+            background_normal="",
+            background_color=(0.098, 0.463, 0.824, 1),
+        )
+        save_btn.bind(on_release=self.handle_save_password)
+        self.root_layout.add_widget(save_btn)
+        self.root_layout.add_widget(Label())
 
     def build_unlocked_screen(self):
-        tk.Label(
-            self.main_frame,
-            text="🔓",
-            font=("Segoe UI Emoji", 60),
-            bg="#1e1e1e",
-            fg="#4caf50",
-        ).pack(pady=(10, 5))
+        self.root_layout.add_widget(
+            Label(
+                text="[UNLOCKED]",
+                font_size="28sp",
+                bold=True,
+                color=(0.3, 0.69, 0.31, 1),
+                size_hint_y=None,
+                height=dp(50),
+            )
+        )
+        self.root_layout.add_widget(
+            Label(
+                text="INTERNET UNLOCKED",
+                font_size="22sp",
+                bold=True,
+                color=(0.3, 0.69, 0.31, 1),
+                size_hint_y=None,
+                height=dp(36),
+            )
+        )
+        sub = Label(
+            text="Master password is saved. Tap below to engage lock.",
+            font_size="14sp",
+            color=(0.67, 0.67, 0.67, 1),
+            halign="center",
+            size_hint_y=None,
+            height=dp(44),
+        )
+        sub.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+        self.root_layout.add_widget(sub)
 
-        tk.Label(
-            self.main_frame,
-            text="INTERNET UNLOCKED",
-            font=("Segoe UI", 14, "bold"),
-            bg="#1e1e1e",
-            fg="#4caf50",
-        ).pack()
-
-        tk.Label(
-            self.main_frame,
-            text="Master password is saved. Click below for instant kill switch.",
-            font=("Segoe UI", 9),
-            bg="#1e1e1e",
-            fg="#aaaaaa",
-        ).pack(pady=(2, 24))
-
-        tk.Button(
-            self.main_frame,
+        lock_btn = Button(
             text="LOCK INTERNET NOW",
-            font=("Segoe UI", 12, "bold"),
-            bg="#d32f2f",
-            fg="white",
-            activebackground="#b71c1c",
-            activeforeground="white",
-            relief="flat",
-            cursor="hand2",
-            command=self.handle_lock,
-        ).pack(fill="x", ipady=12)
+            font_size="17sp",
+            bold=True,
+            size_hint_y=None,
+            height=dp(58),
+            background_normal="",
+            background_color=(0.827, 0.184, 0.184, 1),
+        )
+        lock_btn.bind(on_release=self.handle_lock)
+        self.root_layout.add_widget(lock_btn)
 
-        tk.Button(
-            self.main_frame,
-            text="Change Master Password",
-            font=("Segoe UI", 9, "underline"),
-            bg="#1e1e1e",
-            fg="#888888",
-            activebackground="#1e1e1e",
-            activeforeground="#cccccc",
-            relief="flat",
-            cursor="hand2",
-            command=self.handle_reset_password_prompt,
-        ).pack(pady=(14, 0))
+        reset_btn = Button(
+            text="Reset Master Password",
+            font_size="14sp",
+            size_hint_y=None,
+            height=dp(44),
+            background_normal="",
+            background_color=(0.18, 0.18, 0.18, 1),
+            color=(0.7, 0.7, 0.7, 1),
+        )
+        reset_btn.bind(on_release=self.handle_reset_password)
+        self.root_layout.add_widget(reset_btn)
+        self.root_layout.add_widget(Label())
 
     def build_locked_screen(self):
-        tk.Label(
-            self.main_frame,
-            text="🔒",
-            font=("Segoe UI Emoji", 54),
-            bg="#1e1e1e",
-            fg="#f44336",
-        ).pack(pady=(5, 5))
-
-        tk.Label(
-            self.main_frame,
-            text="INTERNET LOCKED",
-            font=("Segoe UI", 14, "bold"),
-            bg="#1e1e1e",
-            fg="#f44336",
-        ).pack()
-
-        tk.Label(
-            self.main_frame,
-            text="Windows remains usable. Survives power loss & reboot.\nEnter your master password to restore internet access.",
-            font=("Segoe UI", 9),
-            bg="#1e1e1e",
-            fg="#cccccc",
-            justify="center",
-        ).pack(pady=(4, 16))
-
-        self.unlock_entry = tk.Entry(
-            self.main_frame,
-            show="*",
-            font=("Segoe UI", 12),
-            bg="#2d2d2d",
-            fg="#ffffff",
-            insertbackground="white",
-            relief="flat",
+        self.root_layout.add_widget(
+            Label(
+                text="[LOCKED]",
+                font_size="28sp",
+                bold=True,
+                color=(0.957, 0.263, 0.212, 1),
+                size_hint_y=None,
+                height=dp(50),
+            )
         )
-        self.unlock_entry.pack(fill="x", ipady=6, pady=(4, 16))
-        self.unlock_entry.focus()
-        self.unlock_entry.bind("<Return>", lambda e: self.handle_unlock())
+        self.root_layout.add_widget(
+            Label(
+                text="INTERNET LOCKED",
+                font_size="22sp",
+                bold=True,
+                color=(0.957, 0.263, 0.212, 1),
+                size_hint_y=None,
+                height=dp(36),
+            )
+        )
+        sub = Label(
+            text="Lock state persists across app restarts.\nEnter your master password to unlock.",
+            font_size="14sp",
+            color=(0.8, 0.8, 0.8, 1),
+            halign="center",
+            size_hint_y=None,
+            height=dp(50),
+        )
+        sub.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+        self.root_layout.add_widget(sub)
 
-        tk.Button(
-            self.main_frame,
+        self.unlock_input = TextInput(
+            hint_text="Enter master password",
+            password=True,
+            multiline=False,
+            font_size="18sp",
+            size_hint_y=None,
+            height=dp(52),
+            background_color=(0.18, 0.18, 0.18, 1),
+            foreground_color=(1, 1, 1, 1),
+            cursor_color=(1, 1, 1, 1),
+            padding=[dp(14), dp(14)],
+        )
+        self.root_layout.add_widget(self.unlock_input)
+
+        unlock_btn = Button(
             text="UNLOCK INTERNET ACCESS",
-            font=("Segoe UI", 11, "bold"),
-            bg="#388e3c",
-            fg="white",
-            activebackground="#2e7d32",
-            activeforeground="white",
-            relief="flat",
-            cursor="hand2",
-            command=self.handle_unlock,
-        ).pack(fill="x", ipady=10)
+            font_size="16sp",
+            bold=True,
+            size_hint_y=None,
+            height=dp(56),
+            background_normal="",
+            background_color=(0.22, 0.557, 0.235, 1),
+        )
+        unlock_btn.bind(on_release=self.handle_unlock)
+        self.root_layout.add_widget(unlock_btn)
 
-    def handle_save_master_password(self):
-        pwd = self.setup_entry.get().strip()
-        if not pwd:
-            messagebox.showwarning("Password Required", "Please enter a master password.")
+        net_btn = Button(
+            text="Open Android Wireless Settings",
+            font_size="14sp",
+            size_hint_y=None,
+            height=dp(44),
+            background_normal="",
+            background_color=(0.2, 0.2, 0.2, 1),
+            color=(0.8, 0.8, 0.8, 1),
+        )
+        net_btn.bind(on_release=lambda *_: open_android_network_settings())
+        self.root_layout.add_widget(net_btn)
+        self.root_layout.add_widget(Label())
+
+    def handle_save_password(self, *_):
+        pw = self.setup_input.text.strip()
+        if len(pw) < 4:
+            self.show_message("Too Short", "Please enter at least 4 characters.")
             return
-        self.config["password_hash"] = hash_password(pwd)
+        self.config_data["password_hash"] = hash_password(pw)
+        self.config_data["locked"] = False
         self.save_config()
         self.render_screen()
 
-    def handle_lock(self):
-        lock_internet()
+    def handle_lock(self, *_):
+        self.config_data["locked"] = True
+        self.save_config()
         self.render_screen()
+        open_android_network_settings()
 
-    def handle_unlock(self):
-        pwd = self.unlock_entry.get().strip()
-        saved_hash = self.config.get("password_hash", "")
-        if hash_password(pwd) == saved_hash:
-            unlock_internet()
+    def handle_unlock(self, *_):
+        pw = self.unlock_input.text.strip()
+        if hash_password(pw) == self.config_data.get("password_hash"):
+            self.config_data["locked"] = False
+            self.save_config()
             self.render_screen()
         else:
-            messagebox.showerror("Access Denied", "Incorrect password. Internet remains locked.")
-            self.unlock_entry.delete(0, tk.END)
+            self.unlock_input.text = ""
+            self.show_message("Access Denied", "Incorrect master password.")
 
-    def handle_reset_password_prompt(self):
-        del self.config["password_hash"]
+    def handle_reset_password(self, *_):
+        self.config_data.pop("password_hash", None)
+        self.config_data["locked"] = False
         self.save_config()
         self.render_screen()
 
 
 if __name__ == "__main__":
-    if not is_admin():
-        run_as_admin()
-    root = tk.Tk()
-    app = NetPadlockApp(root)
-    root.mainloop()
+    NetPadlockAndroidApp().run()
