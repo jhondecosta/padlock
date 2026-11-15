@@ -25,6 +25,9 @@ jobs:
       - name: Configure & Build APK (arm64-v8a only)
         run: |
           buildozer init || true
+          sed -i 's/title = My Application/title = NetPadlock/' buildozer.spec
+          sed -i 's/fullscreen = 1/fullscreen = 0/' buildozer.spec
+          sed -i 's/orientation = landscape/orientation = portrait/' buildozer.spec
           sed -i 's/# android.accept_sdk_license = False/android.accept_sdk_license = True/' buildozer.spec
           sed -i 's/android.accept_sdk_license = False/android.accept_sdk_license = True/' buildozer.spec
           sed -i 's/android.archs = arm64-v8a, armeabi-v7a/android.archs = arm64-v8a/' buildozer.spec
