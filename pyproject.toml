@@ -1,1 +1,13 @@
+[project]
+name = "netpadlock"
+version = "0.1.0"
+description = "NetPadlock Android App"
+requires-python = ">=3.11"
+dependencies = [
+    "flet>=0.25.0",
+]
+
+[tool.flet]
+org = "com.jhondecosta.padlock"
+product = "NetPadlock"
 
