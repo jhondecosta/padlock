@@ -1,0 +1,7 @@
+RESUME CONTEXT — NetPadlock Android App (Repo: ://github.com)
+- Device: Android 16 (Mali GPU, arm64-v8a), building APKs via GitHub Actions (no local Android Studio).
+- Goal: Build "NetPadlock" — an offline master-password internet kill-switch APK that blocks Wi-Fi & mobile data via a local Android VpnService packet sinkhole (0.0.0.0/0 & ::/0) until the SHA-256 master password is entered.
+- Where we left off:
+  1. We already tested Kivy and Flet UI builds via GitHub Actions; the Flet 1.0 UI ran on Android 16, confirming the GitHub Actions APK pipeline works, but Python cannot block system internet on Android without native VpnService.
+  2. Next step: Replace the repo with the native Kotlin/Gradle Android project (build.yml using Gradle 8.7 + Java 17, settings.gradle.kts, build.gradle.kts, gradle.properties, app/build.gradle.kts, AndroidManifest.xml with BIND_VPN_SERVICE, KillSwitchVpnService.kt, and MainActivity.kt).
+  3. Please either provide a downloadable ZIP of these Kotlin project files or guide me step by step to commit them and build the APK.
