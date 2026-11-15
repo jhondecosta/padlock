@@ -1,1 +1,4 @@
-import padlock
+from padlock import NetPadlockAndroidApp
+
+NetPadlockAndroidApp().run()
+
