@@ -22,13 +22,18 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+          flutter-version: '3.29.3'
 
       - name: Install Flet & Build APK
         run: |
+          echo "flet" > requirements.txt
           pip install --upgrade flet
           flet build apk --project "NetPadlock" --org "com.jhondecosta.padlock" --arch arm64-v8a
 
